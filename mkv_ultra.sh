@@ -163,7 +163,6 @@ temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
 	exit 1
 }
 
-cleanup
 
 while IFS= read -r -d '' src_file; do
 	SECONDS=0
