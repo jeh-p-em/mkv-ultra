@@ -4,7 +4,8 @@ compress_check=true
 retain_files=false
 ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
-temp_dir="/opt/compress_mkv"
+base_temp_dir="/opt/compress_mkv"
+temp_dir=""
 work_dir="."
 file_name=""
 
@@ -27,7 +28,7 @@ Options:
 
   -t, --temp-dir DIRECTORY
         Directory to use for temporary files.
-        Default: $temp_dir
+        Default: $base_temp_dir
 
   -l, --compression-level LEVEL
         HEVC VAAPI compression level, from 20 to 30.
@@ -77,11 +78,11 @@ while true; do
 			shift
 			;;
 		-t|--temp-dir)
-			temp_dir="$2"
-			if [[ ! -d "$temp_dir" ]]; then
-				echo "Creating temp directory: $temp_dir"
-				if ! mkdir -p -- "$temp_dir"; then
-					echo "Failed to create temp directory: $temp_dir"
+			base_temp_dir="$2"
+			if [[ ! -d "$base_temp_dir" ]]; then
+				echo "Creating temp directory: $base_temp_dir"
+				if ! mkdir -p -- "$base_temp_dir"; then
+					echo "Failed to create temp directory: $base_temp_dir"
 					exit 1
 				fi
 			fi
@@ -160,6 +161,8 @@ cleanup() {
 }
 
 cleanup
+
+temp_dir=$(mktemp "$base_temp_dir"/mkv_ultra.XXXXXX)
 
 while IFS= read -r -d '' src_file; do
 	SECONDS=0
@@ -303,4 +306,5 @@ while IFS= read -r -d '' src_file; do
 done < <(get_files)
 
 cleanup
+sleep 1
 ntfy "Script Complete"
