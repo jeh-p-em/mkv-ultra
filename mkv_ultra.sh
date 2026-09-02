@@ -38,7 +38,7 @@ Options:
         Directory to search for media files.
         Default: $work_dir
 
-  -x, --file FILE
+  -x, --file-name FILE
         Process only the specified file.
 
 EOF
@@ -46,7 +46,7 @@ EOF
 
 OPTIONS=$(getopt \
 	--options hfrdt:l:w:x: \
-	--longoptions help,force,retain-files,dry-run,temp-dir:,compression-level:,work-dir:,file: \
+	--longoptions help,force,retain-files,dry-run,temp-dir:,compression-level:,work-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -93,7 +93,7 @@ while true; do
 			work_dir="$2"
 			shift 2
 			;;
-		-x|--file)
+		-x|--file-name)
 			file_name="$2"
 			shift 2
 			;;
@@ -267,7 +267,6 @@ while IFS= read -r -d '' src_file; do
 
 		after_size=$(stat -c %s "$output_file")
 		after_size_mb="$((after_size / 1024 / 1024))MB"
-
 
 		if [[ "$after_size" -ge "$before_size" ]]; then
 			elapsed=$(elapsed_time)
