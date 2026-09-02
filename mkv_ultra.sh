@@ -134,9 +134,7 @@ elapsed_time() {
 
 ntfy() {
 	echo "$1"
-	curl -s -o /dev/null \
-		-d "$1" \
-		"ntfy.sh/$ntfy_id"
+	curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
 }
 
 ntfy_data() {
