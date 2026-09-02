@@ -8,6 +8,7 @@ base_work_dir="/opt/compress_mkv"
 temp_dir=""
 src_dir="."
 file_name=""
+no_replace=false
 
 usage() {
 	cat <<EOF
@@ -23,8 +24,10 @@ Options:
   -r, --retain-files
         Keep temporary files after processing.
 
-  -t, --test-run
-        Show what would be processed without actually compressing files.
+  -n, --no-replace
+        Runs through the whole compression process and reports 
+        the amount of data that was saved and the time it took.
+        The original source files are not replaced with the commpressed versions.
 
   -w, --work-dir DIRECTORY
         Directory to use for temporary files.
@@ -32,6 +35,7 @@ Options:
 
   -l, --compression-level LEVEL
         HEVC VAAPI compression level, from 20 to 30.
+        The higher the number, the more compression occurs.
         Default: $compression_lvl
 
   -s, --source-dir DIRECTORY
@@ -45,8 +49,8 @@ EOF
 }
 
 OPTIONS=$(getopt \
-	--options hfrtw:l:s:x: \
-	--longoptions help,force,retain-files,test-run,work-dir:,compression-level:,source-dir:,file-name: \
+	--options hfrnw:l:s:x: \
+	--longoptions help,force,retain-files,no-replace,work-dir:,compression-level:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -72,8 +76,8 @@ while true; do
 			retain_files=true
 			shift
 			;;
-		-t|--test-run)
-			dry_run=true
+		-n|--no-replace)
+			no_replace=true
 			shift
 			;;
 		-w|--work-dir)
@@ -84,7 +88,7 @@ while true; do
 			compression_lvl="$2"
 			if ! [[ "$compression_lvl" =~ ^[0-9]+$ ]] || (( compression_lvl < 20 || compression_lvl > 30 )); then
 				echo "Invalid compression level: $compression_lvl"
-				echo "Compression level must be between 20 and 30."
+				echo "Compression level must be between 20 and 30. The higher the number the smaller the file."
 				exit 1
 			fi
 			shift 2
@@ -149,6 +153,7 @@ cleanup() {
 		rm -rf "$temp_dir"/attachments*
 	fi
 }
+
 
 if [[ ! -d "$base_work_dir" ]]; then
 	echo "Creating directory: $base_work_dir"
@@ -275,7 +280,7 @@ while IFS= read -r -d '' src_file; do
 			continue
 		fi
 
-		if [[ ! "$dry_run" ]]; then
+		if [[ ! "$no_replace" ]]; then
 			echo "Copying: $output_file to $src_file"
 			if cp -f -- "$output_file" "$src_file"; then
 				elapsed=$(elapsed_time)
@@ -286,9 +291,8 @@ while IFS= read -r -d '' src_file; do
 			fi
 		else
 			elapsed=$(elapsed_time)
-			ntfy "Dry-run Complete: $(ntfy_data)"
+			ntfy "Test Run Complete: $(ntfy_data)"
 		fi
-
 
 	else
 		ntfy "Compression Failed: $basename_file"
@@ -297,6 +301,7 @@ while IFS= read -r -d '' src_file; do
 	cleanup
 	echo "----------------------------------------"
 done < <(get_files)
+
 
 if [[ "$retain_files" == false ]]; then
 	rm -rf -- "$temp_dir"
