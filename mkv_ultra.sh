@@ -4,9 +4,9 @@ compress_check=true
 keep_temp_files=false
 ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
-base_work_dir="/opt/compress_mkv"
+base_temp_dir="/opt/compress_mkv"
 temp_dir=""
-src_dir="."
+source_dir="."
 file_name=""
 no_replace=false
 
@@ -29,9 +29,9 @@ Options:
         the amount of data that was saved and the time it took.
         The original source files are not replaced with the commpressed versions.
 
-  -w, --work-dir DIRECTORY
+  -t, --temp-dir DIRECTORY
         Directory to use for temporary files.
-        Default: $base_work_dir
+        Default: $base_temp_dir
 
   -l, --compression-level LEVEL
         HEVC VAAPI compression level, from 20 to 30.
@@ -40,7 +40,7 @@ Options:
 
   -s, --source-dir DIRECTORY
         Directory to search for media files.
-        Default: $src_dir
+        Default: $source_dir
 
   -x, --file-name FILE
         Process only the specified file.
@@ -49,8 +49,8 @@ EOF
 }
 
 OPTIONS=$(getopt \
-	--options hfknw:l:s:x: \
-	--longoptions help,force,keep-temp-files,no-replace,work-dir:,compression-level:,source-dir:,file-name: \
+	--options hfknt:l:s:x: \
+	--longoptions help,force,keep-temp-files,no-replace,temp-dir:,compression-level:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -80,21 +80,21 @@ while true; do
 			no_replace=true
 			shift
 			;;
-		-w|--work-dir)
-			base_work_dir="$2"
+		-t|--temp-dir)
+			base_temp_dir="$2"
 			shift 2
 			;;
 		-l|--compression-level)			
 			compression_lvl="$2"
 			if ! [[ "$compression_lvl" =~ ^[0-9]+$ ]] || (( compression_lvl < 20 || compression_lvl > 30 )); then
 				echo "Invalid compression level: $compression_lvl"
-				echo "Compression level must be between 20 and 30. The higher the number the smaller the file."
+				echo "Compression level must be between 20 and 30."
 				exit 1
 			fi
 			shift 2
 			;;
 		-s|--source-dir)
-			src_dir="$2"
+			source_dir="$2"
 			shift 2
 			;;
 		-x|--file-name)
@@ -114,13 +114,14 @@ done
 
 get_files() {
 	if [[ -n "$file_name" ]]; then
-		if [[ ! -f "$src_dir/$file_name" ]]; then
-			echo "File not found: $src_dir/$file_name" >&2
+		found_file=$(find "$source_dir" -type f -name "*$file_name" -print -quit)
+		if [[ -z "$found_file" ]]; then
+			echo "File not found: $file_name" >&2
 			return 1
 		fi
-		printf '%s\0' "$src_dir/$file_name"
+		printf '%s\0' "$found_file"
 	else
-		find "$src_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" \) -print0 | sort -zV
+		find "$source_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" \) -print0 | sort -zV
 	fi
 }
 
@@ -154,15 +155,15 @@ cleanup() {
 }
 
 
-if [[ ! -d "$base_work_dir" ]]; then
-	echo "Creating directory: $base_work_dir"
-	if ! mkdir -p -- "$base_work_dir"; then
-		echo "Failed to create directory: $base_work_dir"
+if [[ ! -d "$base_temp_dir" ]]; then
+	echo "Creating directory: $base_temp_dir"
+	if ! mkdir -p -- "$base_temp_dir"; then
+		echo "Failed to create directory: $base_temp_dir"
 		exit 1
 	fi
 fi
 
-temp_dir=$(mktemp -d "$base_work_dir"/mkv_ultra.XXXXXX) || {
+temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
 	echo "Failed to create temporary directory"
 	exit 1
 }
