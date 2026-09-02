@@ -111,8 +111,11 @@ ntfy_data() {
 
 cleanup() {
 	if [[ "$retain_files" == false ]]; then
+		echo "Cleaning up."
 		find "$temp_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" \) -delete
 		rm -rf "$temp_dir"/attachments*
+	else
+		echo "Temporary files retained."
 	fi
 }
 
@@ -255,7 +258,6 @@ while IFS= read -r -d '' src_file; do
 		ntfy "Compression Failed: $basename_file"
 	fi
 
-	echo "Cleaning up"
 	cleanup
 	echo "----------------------------------------"
 done < <(get_files)
