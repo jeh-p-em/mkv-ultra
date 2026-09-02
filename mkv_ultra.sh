@@ -1,7 +1,7 @@
 #!/bin/bash
 
 compress_check=true
-retain_files=false
+keep_temp_files=false
 ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
 base_work_dir="/opt/compress_mkv"
@@ -21,7 +21,7 @@ Options:
   -f, --force
         Compress files even if they are already marked as compressed.
 
-  -r, --retain-files
+  -k, --keep-temp-files
         Keep temporary files after processing.
 
   -n, --no-replace
@@ -49,8 +49,8 @@ EOF
 }
 
 OPTIONS=$(getopt \
-	--options hfrnw:l:s:x: \
-	--longoptions help,force,retain-files,no-replace,work-dir:,compression-level:,source-dir:,file-name: \
+	--options hfknw:l:s:x: \
+	--longoptions help,force,keep-temp-files,no-replace,work-dir:,compression-level:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -72,8 +72,8 @@ while true; do
 			compress_check=false
 			shift
 			;;
-		-r|--retain-files)
-			retain_files=true
+		-k|--keep-temp-files)
+			keep_temp_files=true
 			shift
 			;;
 		-n|--no-replace)
@@ -147,10 +147,9 @@ ntfy_data() {
 }
 
 cleanup() {
-	if [[ "$retain_files" == false ]]; then
-		echo "Cleaning up."
-		find "$temp_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" \) -delete
-		rm -rf "$temp_dir"/attachments*
+	if [[ "$keep_temp_files" == false ]]; then
+		echo "Deleting temporary files."
+    rm -rf -- "$temp_dir"/*
 	fi
 }
 
@@ -303,7 +302,7 @@ while IFS= read -r -d '' src_file; do
 done < <(get_files)
 
 
-if [[ "$retain_files" == false ]]; then
+if [[ "$keep_temp_files" == false ]]; then
 	rm -rf -- "$temp_dir"
 fi
 
