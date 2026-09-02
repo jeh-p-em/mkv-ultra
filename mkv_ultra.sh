@@ -147,8 +147,6 @@ cleanup() {
 		echo "Cleaning up."
 		find "$temp_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" \) -delete
 		rm -rf "$temp_dir"/attachments*
-	else
-		echo "Temporary files retained."
 	fi
 }
 
@@ -302,6 +300,9 @@ while IFS= read -r -d '' src_file; do
 	echo "----------------------------------------"
 done < <(get_files)
 
-cleanup
+if [[ "$retain_files" == false ]]; then
+	rm -f $base_temp_dir
+fi
+
 sleep 1
 ntfy "Script Complete"
