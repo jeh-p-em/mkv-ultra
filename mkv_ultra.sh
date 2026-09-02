@@ -79,13 +79,6 @@ while true; do
 			;;
 		-t|--temp-dir)
 			base_temp_dir="$2"
-			if [[ ! -d "$base_temp_dir" ]]; then
-				echo "Creating temp directory: $base_temp_dir"
-				if ! mkdir -p -- "$base_temp_dir"; then
-					echo "Failed to create temp directory: $base_temp_dir"
-					exit 1
-				fi
-			fi
 			shift 2
 			;;
 		-l|--compression-level)			
@@ -160,9 +153,20 @@ cleanup() {
 	fi
 }
 
-cleanup
+if [[ ! -d "$base_temp_dir" ]]; then
+	echo "Creating directory: $base_temp_dir"
+	if ! mkdir -p -- "$base_temp_dir"; then
+		echo "Failed to create directory: $base_temp_dir"
+		exit 1
+	fi
+fi
 
-temp_dir=$(mktemp "$base_temp_dir"/mkv_ultra.XXXXXX)
+temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
+	echo "Failed to create temporary directory"
+	exit 1
+}
+
+cleanup
 
 while IFS= read -r -d '' src_file; do
 	SECONDS=0
