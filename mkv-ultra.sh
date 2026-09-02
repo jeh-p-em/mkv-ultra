@@ -1,7 +1,6 @@
 #!/bin/bash
 
 compress_check=true
-keep_temp_files=false
 ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
 base_temp_dir="/opt/compress_mkv"
@@ -9,6 +8,7 @@ temp_dir=""
 source_dir="."
 file_name=""
 no_replace=false
+keep_temp_files=false
 
 usage() {
 	cat <<EOF
@@ -167,31 +167,31 @@ temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
 }
 
 
-while IFS= read -r -d '' src_file; do
+while IFS= read -r -d '' source_file; do
 	SECONDS=0
 
 	compressed=$(ffprobe -v error \
 		-show_entries format_tags=comment \
 		-of default=noprint_wrappers=1:nokey=1 \
-		"$src_file")
+		"$source_file")
 
 	if [[ "$compressed" == "COMPRESSED" && "$compress_check" == true ]]; then
-		echo "File already compressed: $src_file"
+		echo "File already compressed: $source_file"
 		continue
 	fi
 
-	echo "Processing: $src_file"
-	basename_file=$(basename "$src_file")
-	ext="${src_file##*.}"
+	echo "Processing: $source_file"
+	basename_file=$(basename "$source_file")
+	ext="${source_file##*.}"
 	ext="${ext,,}"
 
 	tmp_file=$(mktemp --suffix=".$ext" "$temp_dir"/ffmpeg.XXXXXX)
 	output_file=$(mktemp --suffix=".$ext" "$temp_dir"/output.XXXXXX)
 	attach_dir=$(mktemp -d "$temp_dir"/attachments.XXXXXX)
 
-	echo "Copying: $src_file to $tmp_file"
-	if ! cp -- "$src_file" "$tmp_file"; then
-		echo "Failed to copy $src_file"
+	echo "Copying: $source_file to $tmp_file"
+	if ! cp -- "$source_file" "$tmp_file"; then
+		echo "Failed to copy $source_file"
 		cleanup
 		continue
 	fi
@@ -278,14 +278,14 @@ while IFS= read -r -d '' src_file; do
 			continue
 		fi
 
-		if [[ ! "$no_replace" ]]; then
-			echo "Copying: $output_file to $src_file"
-			if cp -f -- "$output_file" "$src_file"; then
+		if [[ "$no_replace" == false ]]; then
+			echo "Copying: $output_file to $source_file"
+			if cp -f -- "$output_file" "$source_file"; then
 				elapsed=$(elapsed_time)
 				ntfy "File Compressed: $(ntfy_data)"
 			else
 				elapsed=$(elapsed_time)
-				ntfy "Failed to replace: $src_file - Original file kept."
+				ntfy "Failed to replace: $source_file - Original file kept."
 			fi
 		else
 			elapsed=$(elapsed_time)
