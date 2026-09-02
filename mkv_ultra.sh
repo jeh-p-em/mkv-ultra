@@ -44,7 +44,6 @@ Options:
 EOF
 }
 
-
 OPTIONS=$(getopt \
 	--options hfrdt:l:w:x: \
 	--longoptions help,force,retain-files,dry-run,temp-dir:,compression-level:,work-dir:,file: \
@@ -109,7 +108,6 @@ while true; do
 	esac
 done
 
-
 get_files() {
 	if [[ -n "$file_name" ]]; then
 		if [[ ! -f "$work_dir/$file_name" ]]; then
@@ -130,6 +128,7 @@ elapsed_time() {
 }
 
 ntfy() {
+	echo "$1"
 	curl -s -o /dev/null \
 		-d "$1" \
 		"ntfy.sh/$ntfy_id"
@@ -274,8 +273,6 @@ while IFS= read -r -d '' src_file; do
 
 		if [[ "$after_size" -ge "$before_size" ]]; then
 			elapsed=$(elapsed_time)
-
-			echo "Did not shrink file size: $src_file - $before_size_mb > $after_size_mb"
 			ntfy "Compression Failed: $(ntfy_data)"
 			cleanup
 			echo "----------------------------------------"
@@ -286,22 +283,18 @@ while IFS= read -r -d '' src_file; do
 			echo "Copying: $output_file to $src_file"
 			if cp -f -- "$output_file" "$src_file"; then
 				elapsed=$(elapsed_time)
-				echo "File Compressed: $src_file - $before_size_mb > $after_size_mb"
 				ntfy "File Compressed: $(ntfy_data)"
 			else
 				elapsed=$(elapsed_time)
-				echo "Failed to replace: $src_file - Original file kept."
 				ntfy "Failed to replace: $src_file - Original file kept."
 			fi
 		else
 			elapsed=$(elapsed_time)
-			echo "Dry-run Complete: $src_file - $elapsed - $before_size_mb > $after_size_mb"
 			ntfy "Dry-run Complete: $(ntfy_data)"
 		fi
 
 
 	else
-		echo "Error compressing: $tmp_file - Original file kept."
 		ntfy "Compression Failed: $basename_file"
 	fi
 
