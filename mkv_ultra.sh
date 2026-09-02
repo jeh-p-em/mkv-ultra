@@ -8,15 +8,51 @@ temp_dir="/opt/compress_mkv"
 work_dir="."
 file_name=""
 
+usage() {
+	cat <<EOF
+Usage: $0 [OPTIONS]
+
+Options:
+  -h, --help
+        Show this help message and exit.
+
+  -f, --force
+        Compress files even if they are already marked as compressed.
+
+  -r, --retain-files
+        Keep temporary files after processing.
+
+  -d, --dry-run
+        Show what would be processed without actually compressing files.
+
+  -t, --temp-dir DIRECTORY
+        Directory to use for temporary files.
+        Default: $temp_dir
+
+  -l, --compression-level LEVEL
+        HEVC VAAPI compression level, from 20 to 30.
+        Default: $compression_lvl
+
+  -w, --work-dir DIRECTORY
+        Directory to search for media files.
+        Default: $work_dir
+
+  -x, --file FILE
+        Process only the specified file.
+
+EOF
+}
+
+
 OPTIONS=$(getopt \
-	--options frdt:l:w:x: \
-	--longoptions force,retain-files,dry-run,temp-dir:,compression-level:,work-dir:,file: \
+	--options hfrdt:l:w:x: \
+	--longoptions help,force,retain-files,dry-run,temp-dir:,compression-level:,work-dir:,file: \
 	--name "$0" \
 	-- "$@"
 )
 
 if [[ $? -ne 0 ]]; then
-	echo "Usage: $0 [--force] [--retain-files] [--dry-run] [--temp-dir DIRECTORY] [--compression-level LEVEL] [--work-dir WORKING_DIRECTORY] [--file FILE_NAME]"
+	usage
 	exit 1
 fi
 
@@ -24,6 +60,10 @@ eval set -- "$OPTIONS"
 
 while true; do
 	case "$1" in
+		-h|--help)
+			usage
+			exit 0
+			;;
 		-f|--force)
 			compress_check=false
 			shift
