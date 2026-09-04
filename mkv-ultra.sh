@@ -1,17 +1,22 @@
 #!/bin/bash
 
 compress_check=true
-ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
+ntfy_id=""
 compression_lvl="24"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
 source_dir="."
 file_name=""
-no_replace=false
+retain=false
 keep_temp_files=false
 
 usage() {
 	cat <<EOF
+Description: This script searches current directory and sub-directories for any MKV, MP4, and AVI files.
+             It then copies each found file to the home directory sub-folder, compresses the video track
+             using HEVC X.265 encoding, and converts the file to an MKV. The script then replaces 
+             the original file with the compressed MKV version. 
+
 Usage: $0 [OPTIONS]
 
 Options:
@@ -24,14 +29,13 @@ Options:
   -k, --keep-temp-files
         Keep temporary files after processing.
 
-  -n, --no-replace
+  -r, --retain
         Runs through the whole compression process and reports 
-        the amount of data that was saved and the time it took.
-        The original source files are not replaced with the commpressed versions.
+        the amount of data that was compressed and the time it took.
+        The original files are retained and not replaced with the commpressed versions.
 
-  -y, --ntfy-id
-        Specify your own ntfy ID string to send updates to.
-        Default: $ntfy_id
+  -n, --ntfy-id STRING
+        Send notfication messages to ntfy.sh using a specific the ntfy ID string.
 
   -t, --temp-dir DIRECTORY
         Directory to use for temporary files.
@@ -53,8 +57,8 @@ EOF
 }
 
 OPTIONS=$(getopt \
-	--options hfkny:t:l:s:x: \
-	--longoptions help,force,keep-temp-files,no-replace,ntfy-id:,temp-dir:,compression-level:,source-dir:,file-name: \
+	--options hfkrn:t:l:s:x: \
+	--longoptions help,force,keep-temp-files,retain,ntfy-id:,temp-dir:,compression-level:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -80,11 +84,11 @@ while true; do
 			keep_temp_files=true
 			shift
 			;;
-		-n|--no-replace)
-			no_replace=true
+		-r|--retain)
+			retain=true
 			shift
 			;;
-		-y|--ntfy-id)
+		-n|--ntfy-id)
 			ntfy_id="$2"
 			shift 2
 			;;
@@ -142,7 +146,9 @@ elapsed_time() {
 
 ntfy() {
 	echo "$1"
-	curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
+	if [[ -n "$ntfy_id" ]]; then
+		curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
+	fi
 }
 
 ntfy_data() {
@@ -178,7 +184,7 @@ temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
 while IFS= read -r -d '' source_file; do
 	SECONDS=0
 
-	name_info_file="${source_file%.*}.info"
+	name_info_file="$(basename "${source_file%.*}").info"
 	ffmpeg -i "$source_file" > "$temp_dir/$name_info_file" 2>&1
 
 	compressed=$(ffprobe -v error \
@@ -319,7 +325,7 @@ while IFS= read -r -d '' source_file; do
 			continue
 		fi
 
-		if [[ "$no_replace" == false ]]; then
+		if [[ "$retain" == false ]]; then
 			echo "Copying: $output_file to $source_file"
 			if cp -f -- "$output_file" "$source_file"; then
 				mv -- "$source_file" "$final_file"
