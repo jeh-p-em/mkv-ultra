@@ -94,11 +94,6 @@ while true; do
 			;;
 		-t|--temp-dir)
 			base_temp_dir="$2"
-			if [[ ! -d "$base_temp_dir" ]]; then
-				echo "Temporary directory does not exist in current working directory."
-				echo "Please specify an existing directory or the full path to the directory."
-				exit 1
-			fi
 			shift 2
 			;;
 		-l|--compression-level)			
@@ -112,7 +107,6 @@ while true; do
 			;;
 		-s|--source-dir)
 			source_dir="$2"
-			fi
 			shift 2
 			;;
 		-x|--file-name)
