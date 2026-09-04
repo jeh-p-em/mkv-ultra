@@ -3,7 +3,7 @@
 compress_check=true
 ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
-base_temp_dir="~/mkv-ultra"
+base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
 source_dir="."
 file_name=""
@@ -178,6 +178,9 @@ temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
 while IFS= read -r -d '' source_file; do
 	SECONDS=0
 
+	name_info_file="${source_file%.*}.info"
+	ffmpeg -i "$source_file" > "$temp_dir/$name_info_file" 2>&1
+
 	compressed=$(ffprobe -v error \
 		-show_entries format_tags=comment \
 		-of default=noprint_wrappers=1:nokey=1 \
@@ -194,7 +197,7 @@ while IFS= read -r -d '' source_file; do
 	ext="${source_file##*.}"
 	ext="${ext,,}"
 
-	temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/ffmpeg.XXXXXX)
+	temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/origin.XXXXXX)
 	output_file=$(mktemp --suffix=".mkv" "$temp_dir"/output.XXXXXX)
 	attach_dir=$(mktemp -d "$temp_dir"/attachments.XXXXXX)
 
