@@ -39,7 +39,7 @@ Options:
 
   -l, --compression-level LEVEL
         HEVC VAAPI compression level, from 20 to 30.
-        The higher the number, the more compression occurs.
+        The higher the number, the higher the compression and smaller the file size.
         Default: $compression_lvl
 
   -s, --source-dir DIRECTORY
