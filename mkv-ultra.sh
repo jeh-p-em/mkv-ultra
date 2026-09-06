@@ -333,7 +333,7 @@ check_media_lengths() {
 		fi
 	done
 
-	echo "Media length check passed."
+	echo "Media integrity check passed."
 	return 0
 }
 
