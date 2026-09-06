@@ -1,21 +1,74 @@
 #!/bin/bash
 
 compress_check=true
-ntfy_id=""
+ntfy_id="72c947f5-7ab2-4bc2-b536-8576b998c8a4"
 compression_lvl="24"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
 source_dir="."
 file_name=""
-retain=false
+dry_run=false
 keep_temp_files=false
+
+check_dependencies() {
+	local dependencies=(
+		ffmpeg
+		ffprobe
+		mkvmerge
+		mkvextract
+		mkvpropedit
+		jq
+		curl
+		find
+		sort
+		getopt
+		mktemp
+		stat
+	)
+
+	local missing=()
+
+	for program in "${dependencies[@]}"; do
+		if ! command -v "$program" >/dev/null 2>&1; then
+			missing+=("$program")
+		fi
+	done
+
+	if (( ${#missing[@]} > 0 )); then
+		echo "Missing required dependencies:"
+		printf '  %s\n' "${missing[@]}"
+		echo
+		echo "Please install the missing programs and run the script again."
+		exit 1
+	fi
+
+	if [[ ! -e /dev/dri/renderD128 ]]; then
+		echo "Warning: /dev/dri/renderD128 was not found."
+		echo "HEVC VAAPI encoding may fail."
+		echo
+	fi
+}
+
 
 usage() {
 	cat <<EOF
 Description: This script searches current directory and sub-directories for any MKV, MP4, and AVI files.
              It then copies each found file to the home directory sub-folder, compresses the video track
-             using HEVC X.265 encoding, and converts the file to an MKV. The script then replaces 
+             using Intel's hevc_vaapi hardware encoder, and converts the file to an MKV. The script then replaces 
              the original file with the compressed MKV version. 
+
+Dependancies: ffmpeg
+              ffprobe
+              mkvmerge
+              mkvextract
+              mkvpropedit
+              jq
+              curl
+              find
+              sort
+              getopt
+              mktemp
+              stat
 
 Usage: $0 [OPTIONS]
 
@@ -29,7 +82,7 @@ Options:
   -k, --keep-temp-files
         Keep temporary files after processing.
 
-  -r, --retain
+  -d, --dry-run
         Runs through the whole compression process and reports 
         the amount of data that was compressed and the time it took.
         The original files are retained and not replaced with the commpressed versions.
@@ -56,9 +109,10 @@ Options:
 EOF
 }
 
+
 OPTIONS=$(getopt \
-	--options hfkrn:t:l:s:x: \
-	--longoptions help,force,keep-temp-files,retain,ntfy-id:,temp-dir:,compression-level:,source-dir:,file-name: \
+	--options hfkdn:t:l:s:x: \
+	--longoptions help,force,keep-temp-files,dry-run,ntfy-id:,temp-dir:,compression-level:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -84,8 +138,8 @@ while true; do
 			keep_temp_files=true
 			shift
 			;;
-		-r|--retain)
-			retain=true
+		-d|--dry-run)
+			dry_run=true
 			shift
 			;;
 		-n|--ntfy-id)
@@ -124,6 +178,7 @@ while true; do
 	esac
 done
 
+
 get_files() {
 	if [[ -n "$file_name" ]]; then
 		found_file=$(find "$source_dir" -type f -name "*$file_name" -print -quit)
@@ -137,6 +192,7 @@ get_files() {
 	fi
 }
 
+
 elapsed_time() {
 	printf "%02d:%02d:%02d" \
 		$((SECONDS/3600)) \
@@ -144,12 +200,14 @@ elapsed_time() {
 		$((SECONDS%60))
 }
 
+
 ntfy() {
 	echo "$1"
 	if [[ -n "$ntfy_id" ]]; then
 		curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
 	fi
 }
+
 
 ntfy_data() {
 	printf "%s\n%s > %s\n%s" \
@@ -159,13 +217,118 @@ ntfy_data() {
 		"$elapsed"
 }
 
+
 cleanup() {
 	if [[ "$keep_temp_files" == false ]]; then
 		echo "Deleting temporary files."
-    rm -rf -- "$temp_dir"/*
+		rm -rf -- "$temp_dir"/*
 	fi
 }
 
+
+check_media_lengths() {
+	local source="$1"
+	local output="$2"
+	local tolerance=1
+	local source_video
+	local output_video
+	local source_audio
+	local output_audio
+	local source_count
+	local output_count
+	local i
+	local difference
+
+	# Get video duration
+	source_video=$(ffprobe -v error \
+		-select_streams v:0 \
+		-show_entries stream=duration \
+		-of default=noprint_wrappers=1:nokey=1 \
+		"$source")
+
+	output_video=$(ffprobe -v error \
+		-select_streams v:0 \
+		-show_entries stream=duration \
+		-of default=noprint_wrappers=1:nokey=1 \
+		"$output")
+
+	if [[ -z "$source_video" || -z "$output_video" ]]; then
+		echo "Failed to determine video duration."
+		return 1
+	fi
+
+	difference=$(awk -v a="$source_video" -v b="$output_video" \
+		'BEGIN { d=a-b; if (d<0) d=-d; print d }')
+
+	if awk -v d="$difference" -v t="$tolerance" \
+		'BEGIN { exit !(d > t) }'
+	then
+		echo "Video duration mismatch:"
+		echo "  Source: $source_video seconds"
+		echo "  Output: $output_video seconds"
+		echo "  Difference: $difference seconds"
+		return 1
+	fi
+
+	# Get number of audio streams
+	source_count=$(ffprobe -v error \
+		-select_streams a \
+		-show_entries stream=index \
+		-of csv=p=0 \
+		"$source" | wc -l)
+
+	output_count=$(ffprobe -v error \
+		-select_streams a \
+		-show_entries stream=index \
+		-of csv=p=0 \
+		"$output" | wc -l)
+
+	if [[ "$source_count" -ne "$output_count" ]]; then
+		echo "Audio stream count mismatch:"
+		echo "  Source: $source_count"
+		echo "  Output: $output_count"
+		return 1
+	fi
+
+	# Compare each audio stream
+	for ((i=0; i<source_count; i++)); do
+		source_audio=$(ffprobe -v error \
+			-select_streams "a:$i" \
+			-show_entries stream=duration \
+			-of default=noprint_wrappers=1:nokey=1 \
+			"$source")
+
+		output_audio=$(ffprobe -v error \
+			-select_streams "a:$i" \
+			-show_entries stream=duration \
+			-of default=noprint_wrappers=1:nokey=1 \
+			"$output")
+
+		if [[ -z "$source_audio" || -z "$output_audio" ]]; then
+			echo "Failed to determine duration of audio stream $i."
+			return 1
+		fi
+
+		difference=$(awk -v a="$source_audio" -v b="$output_audio" \
+			'BEGIN { d=a-b; if (d<0) d=-d; print d }')
+
+		if awk -v d="$difference" -v t="$tolerance" \
+			'BEGIN { exit !(d > t) }'
+		then
+			echo "Audio duration mismatch (stream $i):"
+			echo "  Source: $source_audio seconds"
+			echo "  Output: $output_audio seconds"
+			echo "  Difference: $difference seconds"
+			return 1
+		fi
+	done
+
+	echo "Media length check passed."
+	return 0
+}
+
+
+check_dependencies
 
 if [[ ! -d "$base_temp_dir" ]]; then
 	echo "Creating directory: $base_temp_dir"
@@ -300,6 +463,15 @@ while IFS= read -r -d '' source_file; do
 		"$output_file"
 
 	then
+
+		ffmpeg -i "$output_file" >> "$temp_dir/$name_info_file" 2>&1
+		
+		if ! check_media_lengths "$temp_file" "$output_file"; then
+			ntfy "Integrity Check Failed: $basename_file"
+			cleanup
+			continue
+		fi
+
 		if [[ "$ext" == "mkv" && "$attachment_count" -gt 0 ]]; then
 			echo "Restoring attachments..."
 			for attachment in "$attach_dir"/*; do
@@ -325,10 +497,16 @@ while IFS= read -r -d '' source_file; do
 			continue
 		fi
 
-		if [[ "$retain" == false ]]; then
-			echo "Copying: $output_file to $source_file"
-			if cp -f -- "$output_file" "$source_file"; then
-				mv -- "$source_file" "$final_file"
+		if [[ "$dry_run" == false ]]; then
+			echo "Copying: $output_file to $final_file"
+			if mv -- "$output_file" "$source_file"; then
+				if [[ "$source_file" != "$final_file" ]]; then
+					if ! mv -- "$source_file" "$final_file"; then
+						elapsed=$(elapsed_time)
+						ntfy "Failed to replace: $source_file - Original file kept."
+						continue
+					fi
+				fi
 				elapsed=$(elapsed_time)
 				ntfy "File Compressed: $(ntfy_data)"
 			else
@@ -337,7 +515,7 @@ while IFS= read -r -d '' source_file; do
 			fi
 		else
 			elapsed=$(elapsed_time)
-			ntfy "Test Run Complete: $(ntfy_data)"
+			ntfy "Dry Run Complete: $(ntfy_data)"
 		fi
 
 	else
@@ -346,6 +524,7 @@ while IFS= read -r -d '' source_file; do
 
 	cleanup
 	echo "----------------------------------------"
+
 done < <(get_files)
 
 
