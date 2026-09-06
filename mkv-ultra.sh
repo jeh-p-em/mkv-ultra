@@ -455,7 +455,7 @@ while IFS= read -r -d '' source_file; do
 		-analyzeduration 100M \
 		-vaapi_device /dev/dri/renderD128 \
 		-i "$temp_file" \
-		-filter_complex "[0:v:0]hqdn3d=0.8:0.8:3:3,format=$format,hwupload[v]" \
+		-filter_complex "[0:v:0]format=$format,hwupload[v]" \
 		-map "[v]" \
 		-profile:v:0 "$profile" \
 		-map 0:a? \
