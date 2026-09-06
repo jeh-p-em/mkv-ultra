@@ -52,10 +52,20 @@ check_dependencies() {
 
 usage() {
 	cat <<EOF
-Description: This script searches current directory and sub-directories for any MKV, MP4, and AVI files.
-             It then copies each found file to the home directory sub-folder, compresses the video track
-             using Intel's hevc_vaapi hardware encoder, and converts the file to an MKV. The script then replaces 
-             the original file with the compressed MKV version. 
+
+Description: 
+  mkv-ultra is a Bash script to automatically finding and compressing video files
+  using Intel hardware-accelerated HEVC encoding through VAAPI. The script searches 
+  the current working (or a specified) directory and its subdirectories 
+  for MKV, MP4, and AVI files. 
+
+  Each video is  copied to a temporary directory, analyzed, and then re-encoded
+  using the Intel hevc_vaapi encoder. Temporary files are stored in a dedicated directory 
+  under the user's home directory by default. Audio, subtitles, metadata, chapters, and 
+  secondary video streams are preserved whenever possible.
+
+  The resulting file is converted to an MKV container and, if the compressed version is smaller 
+  than the original, it replaces the original file unless the --dry-run option is used.
 
 Dependancies: ffmpeg
               ffprobe
