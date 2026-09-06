@@ -426,17 +426,9 @@ while IFS= read -r -d '' source_file; do
 			format="nv12"
 			profile="main"
 			;;
-		yuv420p10le)
+		yuv420p10le|yuv422p10le|yuv444p10le)
 			format="p010le"
 			profile="main10"
-			;;
-		yuv422p10le)
-			format="yuv422p10le"
-			profile="rext"
-			;;
-		yuv444p10le)
-			format="yuv444p10le"
-			profile="rext"
 			;;
 		*)
 			echo "Unsupported pixel format: $source_pix_fmt"
