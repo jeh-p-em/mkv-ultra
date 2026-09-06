@@ -348,7 +348,7 @@ if [[ ! -d "$base_temp_dir" ]]; then
 	fi
 fi
 
-temp_dir=$(mktemp -d "$base_temp_dir"/mkv_ultra.XXXXXX) || {
+temp_dir=$(mktemp -d "$base_temp_dir"/mkv-ultra.XXXXXX) || {
 	echo "Failed to create temporary directory"
 	exit 1
 }
