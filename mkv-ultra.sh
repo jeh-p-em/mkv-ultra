@@ -9,6 +9,8 @@ source_dir="."
 file_name=""
 dry_run=false
 keep_temp_files=false
+denoise_level="mid"
+
 
 check_dependencies() {
 	local dependencies=(
@@ -46,6 +48,14 @@ check_dependencies() {
 		echo "Warning: /dev/dri/renderD128 was not found."
 		echo "HEVC VAAPI encoding may fail."
 		echo
+	fi
+}
+
+
+require_arg() {
+	if [[ -z "$2" ]]; then
+		echo "Error: $1 requires an argument" >&2
+		exit 1
 	fi
 }
 
@@ -104,10 +114,21 @@ Options:
         Directory to use for temporary files.
         Default: $base_temp_dir
 
-  -l, --compression-level LEVEL
+  -c, --compression-level LEVEL
         HEVC VAAPI compression level, from 20 to 30.
         The higher the number, the higher the compression and smaller the file size.
         Default: $compression_lvl
+
+  -g, --denoise LEVEL
+        Valid presets: low, mid, high, very_high
+		Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)
+		For example: --denoise 0.8:0.8:3:3
+
+        Preset values:
+            low = 0.8:0.8:3:3
+            mid = 1.0:1.0:3:3
+            high = 1.2:1.2:4:4
+            very_high = 1.5:1.5:5:5
 
   -s, --source-dir DIRECTORY
         Specify the absolute or relative directory path to search for media files.
@@ -121,8 +142,8 @@ EOF
 
 
 OPTIONS=$(getopt \
-	--options hfkdn:t:l:s:x: \
-	--longoptions help,force,keep-temp-files,dry-run,ntfy-id:,temp-dir:,compression-level:,source-dir:,file-name: \
+	--options hfkdn:t:c:,g:,s:x: \
+	--longoptions help,force,keep-temp-files,dry-run,ntfy-id:,temp-dir:,compression-level:,denoise:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -153,14 +174,17 @@ while true; do
 			shift
 			;;
 		-n|--ntfy-id)
+			require_arg "$1" "$2"
 			ntfy_id="$2"
 			shift 2
 			;;
 		-t|--temp-dir)
+			require_arg "$1" "$2"
 			base_temp_dir="$2"
 			shift 2
 			;;
-		-l|--compression-level)			
+		-c|--compression-level)
+			require_arg "$1" "$2"
 			compression_lvl="$2"
 			if ! [[ "$compression_lvl" =~ ^[0-9]+$ ]] || (( compression_lvl < 20 || compression_lvl > 30 )); then
 				echo "Invalid compression level: $compression_lvl"
@@ -169,11 +193,31 @@ while true; do
 			fi
 			shift 2
 			;;
+		-g|--denoise)
+			require_arg "$1" "$2"
+			denoise_level="$2"
+			case "$denoise_level" in
+				low|mid|high|very_high)
+					;;
+				*)
+					if [[ ! "$denoise_level" =~ ^[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?$ ]]; then
+						echo "Invalid denoise level: $denoise_level"
+						echo "Valid levels: low, mid, high, very_high"
+						echo "Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)"
+						echo "Example: --denoise 0.8:0.8:3:3"
+						exit 1
+					fi
+					;;
+			esac
+			shift 2
+			;;
 		-s|--source-dir)
+			require_arg "$1" "$2"
 			source_dir="$2"
 			shift 2
 			;;
 		-x|--file-name)
+			require_arg "$1" "$2"
 			file_name="$2"
 			shift 2
 			;;
@@ -235,6 +279,27 @@ cleanup() {
 	else
 		echo "Temporary files kept in $temp_dir"
 	fi
+}
+
+
+set_denoise() {
+	case "$denoise_level" in
+		low)
+			denoise="0.8:0.8:3:3"
+			;;
+		mid)
+			denoise="1.0:1.0:3:3"
+			;;
+		high)
+			denoise="1.2:1.2:4:4"
+			;;
+		very_high)
+			denoise="1.5:1.5:5:5"
+			;;
+		*)
+			denoise="$denoise_level"
+			;;
+	esac
 }
 
 
@@ -340,6 +405,8 @@ check_media_lengths() {
 
 check_dependencies
 
+set_denoise
+
 if [[ ! -d "$base_temp_dir" ]]; then
 	echo "Creating directory: $base_temp_dir"
 	if ! mkdir -p -- "$base_temp_dir"; then
@@ -358,7 +425,7 @@ while IFS= read -r -d '' source_file; do
 	SECONDS=0
 
 	name_info_file="$(basename "${source_file%.*}").info"
-	ffmpeg -i "$source_file" > "$temp_dir/$name_info_file" 2>&1
+	ffmpeg -i "$source_file" -probesize 100M -analyzeduration 100M > "$temp_dir/$name_info_file" 2>&1
 
 	compressed=$(ffprobe -v error \
 		-show_entries format_tags=comment \
@@ -469,7 +536,7 @@ while IFS= read -r -d '' source_file; do
 		-analyzeduration 100M \
 		-vaapi_device /dev/dri/renderD128 \
 		-i "$temp_file" \
-		-filter_complex "[0:v:0]hqdn3d=0.8:0.8:3:3,format=$format,hwupload[v]" \
+		-filter_complex "[0:v:0]hqdn3d=$denoise,format=$format,hwupload[v]" \
 		-map "[v]" \
 		-profile:v:0 "$profile" \
 		-map 0:a? \
@@ -489,9 +556,9 @@ while IFS= read -r -d '' source_file; do
 		"$output_file"
 
 	then
-
-		ffmpeg -i "$output_file" >> "$temp_dir/$name_info_file" 2>&1
 		
+		ffmpeg -i "$output_file" -probesize 100M -analyzeduration 100M >> "$temp_dir/$name_info_file" 2>&1
+
 		if ! check_media_lengths "$temp_file" "$output_file"; then
 			ntfy "Integrity Check Failed: $basename_file"
 			cleanup
@@ -525,7 +592,7 @@ while IFS= read -r -d '' source_file; do
 
 		if [[ "$dry_run" == false ]]; then
 			echo "Copying: $output_file to $final_file"
-			if mv -- "$output_file" "$source_file"; then
+			if cp -- "$output_file" "$source_file"; then
 				if [[ "$source_file" != "$final_file" ]]; then
 					if ! mv -- "$source_file" "$final_file"; then
 						elapsed=$(elapsed_time)
