@@ -121,11 +121,11 @@ Options:
 
   -g, --denoise LEVEL
         Valid presets: low, mid, high, very_high
-		Or specify a custom hqdn3d value in this format: #(.#):#(.#):#(.#):#(.#)
-		Default: $denoise_level
-		
-		Example: --denoise low 
-				 --denoise 0.8:0.8:3:3
+        Or specify a custom hqdn3d value in this format: #(.#):#(.#):#(.#):#(.#)
+        Default: $denoise_level
+
+        Example: --denoise low 
+                 --denoise 0.8:0.8:3:3
 
         Preset values:
             low = 0.8:0.8:3:3
