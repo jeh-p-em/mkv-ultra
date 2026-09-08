@@ -550,7 +550,7 @@ while IFS= read -r -d '' source_file; do
 		-qp:v:0 "$compression_lvl" \
 		-c:v:1 copy \
 		-c:a libopus \
-		-b:a 192k \
+		-b:a 128k \
 		"${audio_filters[@]}" \
 		-c:s copy \
 		"$output_file"
