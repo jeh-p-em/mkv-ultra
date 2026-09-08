@@ -374,7 +374,7 @@ while IFS= read -r -d '' source_file; do
 	ext="${source_file##*.}"
 	ext="${ext,,}"
 
-	temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/origin.XXXXXX)
+	temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/source.XXXXXX)
 	output_file=$(mktemp --suffix=".mkv" "$temp_dir"/output.XXXXXX)
 	attach_dir=$(mktemp -d "$temp_dir"/attachments.XXXXXX)
 
@@ -435,6 +435,29 @@ while IFS= read -r -d '' source_file; do
 			;;
 	esac
 
+	audio_filters=()
+	audio_index=0
+
+	while IFS= read -r channel_layout; do
+		case "$channel_layout" in
+			5.1\(side\))
+				audio_filters+=(
+					"-filter:a:$audio_index"
+					"channelmap=channel_layout=5.1"
+				)
+				;;
+		esac
+
+		((audio_index++))
+	done < <(
+		ffprobe -v error \
+			-select_streams a \
+			-show_entries stream=channel_layout \
+			-of csv=p=0 \
+			"$temp_file"
+	)
+
+
 	echo "Encoding: $temp_file to $output_file"
 	if ffmpeg \
 		-hide_banner \
@@ -458,7 +481,9 @@ while IFS= read -r -d '' source_file; do
 		-rc_mode:v:0 ICQ \
 		-qp:v:0 "$compression_lvl" \
 		-c:v:1 copy \
-		-c:a copy \
+		-c:a libopus \
+		-b:a 192k \
+		"${audio_filters[@]}" \
 		-c:s copy \
 		"$output_file"
 
