@@ -1,6 +1,6 @@
 #!/bin/bash
 
-compress_check=true
+compressed_check=true
 ntfy_id=""
 compression_lvl="24"
 base_temp_dir="$HOME/mkv-ultra"
@@ -121,8 +121,11 @@ Options:
 
   -g, --denoise LEVEL
         Valid presets: low, mid, high, very_high
-		Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)
-		For example: --denoise 0.8:0.8:3:3
+		Or specify a custom hqdn3d value in this format: #(.#):#(.#):#(.#):#(.#)
+		Default: $denoise_level
+		
+		Example: --denoise low 
+				 --denoise 0.8:0.8:3:3
 
         Preset values:
             low = 0.8:0.8:3:3
@@ -162,7 +165,7 @@ while true; do
 			exit 0
 			;;
 		-f|--force)
-			compress_check=false
+			compressed_check=false
 			shift
 			;;
 		-k|--keep-temp-files)
@@ -432,7 +435,7 @@ while IFS= read -r -d '' source_file; do
 		-of default=noprint_wrappers=1:nokey=1 \
 		"$source_file")
 
-	if [[ "$compressed" == "COMPRESSED" && "$compress_check" == true ]]; then
+	if [[ "$compressed" == "COMPRESSED" && "$compressed_check" == true ]]; then
 		echo "File already compressed: $source_file"
 		continue
 	fi
