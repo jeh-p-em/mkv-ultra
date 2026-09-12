@@ -611,7 +611,7 @@ while IFS= read -r -d '' source_file; do
 
 		if [[ "$after_size" -ge "$before_size" ]]; then
 			elapsed=$(elapsed_time)
-			ntfy "Compression Failed: $(ntfy_data)"
+			ntfy "File size did not shrink: $(ntfy_data)"
 			cleanup
 			echo "----------------------------------------"
 			continue
@@ -624,7 +624,7 @@ while IFS= read -r -d '' source_file; do
 					rm -- "$source_file"
 				fi
 				elapsed=$(elapsed_time)
-				ntfy "File Compressed: $(ntfy_data)"
+				ntfy "Compressed: $(ntfy_data)"
 			else
 				elapsed=$(elapsed_time)
 				ntfy "Failed to replace: $source_file - Original file kept."
@@ -635,7 +635,7 @@ while IFS= read -r -d '' source_file; do
 		fi
 
 	else
-		ntfy "Compression Failed: $basename_file"
+		ntfy "Failed: $basename_file"
 	fi
 
 	cleanup
