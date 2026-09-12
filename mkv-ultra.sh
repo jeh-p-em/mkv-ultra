@@ -1,8 +1,8 @@
 #!/bin/bash
 
 compress_check=true
-ntfy_id="7a723c13-4402-45de-b9e3-201779cb9308"
-compression_lvl="24"
+ntfy_id=""
+compression_lvl="28"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
 source_dir="."
