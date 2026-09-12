@@ -1,15 +1,16 @@
 #!/bin/bash
 
-compressed_check=true
-ntfy_id=""
+compress_check=true
+ntfy_id="7a723c13-4402-45de-b9e3-201779cb9308"
 compression_lvl="24"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
 source_dir="."
 file_name=""
-dry_run=false
+test_run=false
 keep_temp_files=false
-denoise_level="mid"
+denoise_lvl="mid"
+audio_bit_rate="128k"
 
 
 check_dependencies() {
@@ -77,7 +78,7 @@ Description:
   The resulting file is converted to an MKV container and, if the compressed version is smaller 
   than the original, it replaces the original file unless the --dry-run option is used.
 
-Dependancies: ffmpeg
+Dependencies: ffmpeg
               ffprobe
               mkvmerge
               mkvextract
@@ -102,7 +103,7 @@ Options:
   -k, --keep-temp-files
         Keep temporary files after processing.
 
-  -d, --dry-run
+  -t, --test-run
         Runs through the whole compression process and reports 
         the amount of data that was compressed and the time it took.
         The original files are retained and not replaced with the commpressed versions.
@@ -110,7 +111,7 @@ Options:
   -n, --ntfy-id STRING
         Send notfication messages to ntfy.sh using a specific the ntfy ID string.
 
-  -t, --temp-dir DIRECTORY
+  -w, --work-dir DIRECTORY
         Directory to use for temporary files.
         Default: $base_temp_dir
 
@@ -119,19 +120,23 @@ Options:
         The higher the number, the higher the compression and smaller the file size.
         Default: $compression_lvl
 
-  -g, --denoise LEVEL
-        Valid presets: low, mid, high, very_high
-        Or specify a custom hqdn3d value in this format: #(.#):#(.#):#(.#):#(.#)
-        Default: $denoise_level
-
-        Example: --denoise low 
-                 --denoise 0.8:0.8:3:3
+  -d, --denoise LEVEL
+        Valid presets: disable, low, mid, high, very_high
+        Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)
+        For example: --denoise 0.8:0.8:3:3
+        Default: $denoise_lvl
 
         Preset values:
+            disable = 0:0:0:0
             low = 0.8:0.8:3:3
             mid = 1.0:1.0:3:3
             high = 1.2:1.2:4:4
             very_high = 1.5:1.5:5:5
+
+  -a, --audio-bit-rate LEVEL
+        Audio bit-rate for Opus: 96k, 128k, or 192k.
+        The higher the number, the higher the compression and smaller the file size.
+        Default: $audio_bit_rate
 
   -s, --source-dir DIRECTORY
         Specify the absolute or relative directory path to search for media files.
@@ -145,8 +150,8 @@ EOF
 
 
 OPTIONS=$(getopt \
-	--options hfkdn:t:c:,g:,s:x: \
-	--longoptions help,force,keep-temp-files,dry-run,ntfy-id:,temp-dir:,compression-level:,denoise:,source-dir:,file-name: \
+	--options hfktn:w:c:d:a:s:x: \
+	--longoptions help,force,keep-temp-files,test-run,ntfy-id:,work-dir:,compression-level:,denoise:,audio-bit-rate:,source-dir:,file-name: \
 	--name "$0" \
 	-- "$@"
 )
@@ -165,15 +170,15 @@ while true; do
 			exit 0
 			;;
 		-f|--force)
-			compressed_check=false
+			compress_check=false
 			shift
 			;;
 		-k|--keep-temp-files)
 			keep_temp_files=true
 			shift
 			;;
-		-d|--dry-run)
-			dry_run=true
+		-t|--test-run)
+			test_run=true
 			shift
 			;;
 		-n|--ntfy-id)
@@ -181,7 +186,7 @@ while true; do
 			ntfy_id="$2"
 			shift 2
 			;;
-		-t|--temp-dir)
+		-w|--work-dir)
 			require_arg "$1" "$2"
 			base_temp_dir="$2"
 			shift 2
@@ -196,20 +201,34 @@ while true; do
 			fi
 			shift 2
 			;;
-		-g|--denoise)
+		-d|--denoise)
 			require_arg "$1" "$2"
-			denoise_level="$2"
-			case "$denoise_level" in
+			denoise_lvl="$2"
+			case "$denoise_lvl" in
 				low|mid|high|very_high)
 					;;
 				*)
-					if [[ ! "$denoise_level" =~ ^[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?$ ]]; then
-						echo "Invalid denoise level: $denoise_level"
+					if [[ ! "$denoise_lvl" =~ ^[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?$ ]]; then
+						echo "Invalid denoise level: $denoise_lvl"
 						echo "Valid levels: low, mid, high, very_high"
 						echo "Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)"
 						echo "Example: --denoise 0.8:0.8:3:3"
 						exit 1
 					fi
+					;;
+			esac
+			shift 2
+			;;
+		-a|--audio-bit-rate)
+			require_arg "$1" "$2"
+			audio_bit_rate="$2"
+			case "$audio_bit_rate" in
+				96k|128k|192k)
+					;;
+				*)
+					echo "Invalid audio bit-rate level: $audio_bit_rate"
+					echo "Valid levels: 96k, 128k, 192k"
+					exit 1
 					;;
 			esac
 			shift 2
@@ -278,7 +297,8 @@ ntfy_data() {
 cleanup() {
 	if [[ "$keep_temp_files" == false ]]; then
 		echo "Deleting temporary files."
-		rm -rf -- "$temp_dir"/*
+		rm -f -- "$temp_file" "$output_file"
+		rm -rf -- "$attach_dir"
 	else
 		echo "Temporary files kept in $temp_dir"
 	fi
@@ -286,7 +306,10 @@ cleanup() {
 
 
 set_denoise() {
-	case "$denoise_level" in
+	case "$denoise_lvl" in
+		disable)
+			denoise="0:0:0:0"
+			;;
 		low)
 			denoise="0.8:0.8:3:3"
 			;;
@@ -300,7 +323,7 @@ set_denoise() {
 			denoise="1.5:1.5:5:5"
 			;;
 		*)
-			denoise="$denoise_level"
+			denoise="$denoise_lvl"
 			;;
 	esac
 }
@@ -352,14 +375,14 @@ check_media_lengths() {
 	source_count=$(ffprobe -v error \
 		-select_streams a \
 		-show_entries stream=index \
-		-of csv=p=0 \
-		"$source" | wc -l)
+		-of json \
+		"$source" | jq '.streams | length')
 
 	output_count=$(ffprobe -v error \
 		-select_streams a \
 		-show_entries stream=index \
-		-of csv=p=0 \
-		"$output" | wc -l)
+		-of json \
+		"$output" | jq '.streams | length')
 
 	if [[ "$source_count" -ne "$output_count" ]]; then
 		echo "Audio stream count mismatch:"
@@ -410,6 +433,7 @@ check_dependencies
 
 set_denoise
 
+
 if [[ ! -d "$base_temp_dir" ]]; then
 	echo "Creating directory: $base_temp_dir"
 	if ! mkdir -p -- "$base_temp_dir"; then
@@ -435,7 +459,7 @@ while IFS= read -r -d '' source_file; do
 		-of default=noprint_wrappers=1:nokey=1 \
 		"$source_file")
 
-	if [[ "$compressed" == "COMPRESSED" && "$compressed_check" == true ]]; then
+	if [[ "$compressed" == "COMPRESSED" && "$compress_check" == true ]]; then
 		echo "File already compressed: $source_file"
 		continue
 	fi
@@ -553,7 +577,7 @@ while IFS= read -r -d '' source_file; do
 		-qp:v:0 "$compression_lvl" \
 		-c:v:1 copy \
 		-c:a libopus \
-		-b:a 128k \
+		-b:a "$audio_bit_rate" \
 		"${audio_filters[@]}" \
 		-c:s copy \
 		"$output_file"
@@ -593,15 +617,11 @@ while IFS= read -r -d '' source_file; do
 			continue
 		fi
 
-		if [[ "$dry_run" == false ]]; then
+		if [[ "$test_run" == false ]]; then
 			echo "Copying: $output_file to $final_file"
-			if cp -- "$output_file" "$source_file"; then
+			if cp -- "$output_file" "$final_file"; then
 				if [[ "$source_file" != "$final_file" ]]; then
-					if ! mv -- "$source_file" "$final_file"; then
-						elapsed=$(elapsed_time)
-						ntfy "Failed to replace: $source_file - Original file kept."
-						continue
-					fi
+					rm -- "$source_file"
 				fi
 				elapsed=$(elapsed_time)
 				ntfy "File Compressed: $(ntfy_data)"
