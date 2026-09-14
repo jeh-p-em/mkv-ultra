@@ -1,7 +1,7 @@
 #!/bin/bash
 
 compress_check=true
-ntfy_id=""
+ntfy_id="467b31ff-7aa4-4e8c-8c4d-be2d83da8387"
 compression_lvl="28"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
@@ -14,55 +14,55 @@ audio_bit_rate="128k"
 
 
 check_dependencies() {
-	local dependencies=(
-		ffmpeg
-		ffprobe
-		mkvmerge
-		mkvextract
-		mkvpropedit
-		jq
-		curl
-		find
-		sort
-		getopt
-		mktemp
-		stat
-	)
+    local dependencies=(
+        ffmpeg
+        ffprobe
+        mkvmerge
+        mkvextract
+        mkvpropedit
+        jq
+        curl
+        find
+        sort
+        getopt
+        mktemp
+        stat
+    )
 
-	local missing=()
+    local missing=()
 
-	for program in "${dependencies[@]}"; do
-		if ! command -v "$program" >/dev/null 2>&1; then
-			missing+=("$program")
-		fi
-	done
+    for program in "${dependencies[@]}"; do
+        if ! command -v "$program" >/dev/null 2>&1; then
+            missing+=("$program")
+        fi
+    done
 
-	if (( ${#missing[@]} > 0 )); then
-		echo "Missing required dependencies:"
-		printf '  %s\n' "${missing[@]}"
-		echo
-		echo "Please install the missing programs and run the script again."
-		exit 1
-	fi
+    if (( ${#missing[@]} > 0 )); then
+        echo "Missing required dependencies:"
+        printf '  %s\n' "${missing[@]}"
+        echo
+        echo "Please install the missing programs and run the script again."
+        exit 1
+    fi
 
-	if [[ ! -e /dev/dri/renderD128 ]]; then
-		echo "Warning: /dev/dri/renderD128 was not found."
-		echo "HEVC VAAPI encoding may fail."
-		echo
-	fi
+    if [[ ! -e /dev/dri/renderD128 ]]; then
+        echo "Warning: /dev/dri/renderD128 was not found."
+        echo "HEVC VAAPI encoding may fail."
+        echo
+    fi
 }
 
 
 require_arg() {
-	if [[ -z "$2" ]]; then
-		echo "Error: $1 requires an argument" >&2
-		exit 1
-	fi
+    if [[ -z "$2" ]]; then
+        echo "Error: $1 requires an argument" >&2
+        exit 1
+    fi
 }
 
 
 usage() {
-	cat <<EOF
+    cat <<EOF
 
 Description: 
   mkv-ultra is a Bash script to automatically finding and compressing video files
@@ -150,282 +150,295 @@ EOF
 
 
 OPTIONS=$(getopt \
-	--options hfktn:w:c:d:a:s:x: \
-	--longoptions help,force,keep-temp-files,test-run,ntfy-id:,work-dir:,compression-level:,denoise:,audio-bit-rate:,source-dir:,file-name: \
-	--name "$0" \
-	-- "$@"
+    --options hfktn:w:c:d:a:s:x: \
+    --longoptions help,force,keep-temp-files,test-run,ntfy-id:,work-dir:,compression-level:,denoise:,audio-bit-rate:,source-dir:,file-name: \
+    --name "$0" \
+    -- "$@"
 )
 
 if [[ $? -ne 0 ]]; then
-	usage
-	exit 1
+    usage
+    exit 1
 fi
 
 eval set -- "$OPTIONS"
 
 while true; do
-	case "$1" in
-		-h|--help)
-			usage
-			exit 0
-			;;
-		-f|--force)
-			compress_check=false
-			shift
-			;;
-		-k|--keep-temp-files)
-			keep_temp_files=true
-			shift
-			;;
-		-t|--test-run)
-			test_run=true
-			shift
-			;;
-		-n|--ntfy-id)
-			require_arg "$1" "$2"
-			ntfy_id="$2"
-			shift 2
-			;;
-		-w|--work-dir)
-			require_arg "$1" "$2"
-			base_temp_dir="$2"
-			shift 2
-			;;
-		-c|--compression-level)
-			require_arg "$1" "$2"
-			compression_lvl="$2"
-			if ! [[ "$compression_lvl" =~ ^[0-9]+$ ]] || (( compression_lvl < 20 || compression_lvl > 30 )); then
-				echo "Invalid compression level: $compression_lvl"
-				echo "Compression level must be between 20 and 30."
-				exit 1
-			fi
-			shift 2
-			;;
-		-d|--denoise)
-			require_arg "$1" "$2"
-			denoise_lvl="$2"
-			case "$denoise_lvl" in
-				low|mid|high|very_high)
-					;;
-				*)
-					if [[ ! "$denoise_lvl" =~ ^[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?$ ]]; then
-						echo "Invalid denoise level: $denoise_lvl"
-						echo "Valid levels: low, mid, high, very_high"
-						echo "Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)"
-						echo "Example: --denoise 0.8:0.8:3:3"
-						exit 1
-					fi
-					;;
-			esac
-			shift 2
-			;;
-		-a|--audio-bit-rate)
-			require_arg "$1" "$2"
-			audio_bit_rate="$2"
-			case "$audio_bit_rate" in
-				96k|128k|192k)
-					;;
-				*)
-					echo "Invalid audio bit-rate level: $audio_bit_rate"
-					echo "Valid levels: 96k, 128k, 192k"
-					exit 1
-					;;
-			esac
-			shift 2
-			;;
-		-s|--source-dir)
-			require_arg "$1" "$2"
-			source_dir="$2"
-			shift 2
-			;;
-		-x|--file-name)
-			require_arg "$1" "$2"
-			file_name="$2"
-			shift 2
-			;;
-		--)
-			shift
-			break
-			;;
-		*)
-			echo "Unexpected option: $1"
-			exit 1
-			;;
-	esac
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -f|--force)
+            compress_check=false
+            shift
+            ;;
+        -k|--keep-temp-files)
+            keep_temp_files=true
+            shift
+            ;;
+        -t|--test-run)
+            test_run=true
+            shift
+            ;;
+        -n|--ntfy-id)
+            require_arg "$1" "$2"
+            ntfy_id="$2"
+            shift 2
+            ;;
+        -w|--work-dir)
+            require_arg "$1" "$2"
+            base_temp_dir="$2"
+            shift 2
+            ;;
+        -c|--compression-level)
+            require_arg "$1" "$2"
+            compression_lvl="$2"
+            if ! [[ "$compression_lvl" =~ ^[0-9]+$ ]] || (( compression_lvl < 20 || compression_lvl > 30 )); then
+                echo "Invalid compression level: $compression_lvl"
+                echo "Compression level must be between 20 and 30."
+                exit 1
+            fi
+            shift 2
+            ;;
+        -d|--denoise)
+            require_arg "$1" "$2"
+            denoise_lvl="$2"
+            case "$denoise_lvl" in
+                low|mid|high|very_high)
+                    ;;
+                *)
+                    if [[ ! "$denoise_lvl" =~ ^[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?:[0-9]+([.][0-9]+)?$ ]]; then
+                        echo "Invalid denoise level: $denoise_lvl"
+                        echo "Valid levels: low, mid, high, very_high"
+                        echo "Or specify a custom hqdn3d value, #(.#):#(.#):#(.#):#(.#)"
+                        echo "Example: --denoise 0.8:0.8:3:3"
+                        exit 1
+                    fi
+                    ;;
+            esac
+            shift 2
+            ;;
+        -a|--audio-bit-rate)
+            require_arg "$1" "$2"
+            audio_bit_rate="$2"
+            case "$audio_bit_rate" in
+                96k|128k|192k)
+                    ;;
+                *)
+                    echo "Invalid audio bit-rate level: $audio_bit_rate"
+                    echo "Valid levels: 96k, 128k, 192k"
+                    exit 1
+                    ;;
+            esac
+            shift 2
+            ;;
+        -s|--source-dir)
+            require_arg "$1" "$2"
+            source_dir="$2"
+            shift 2
+            ;;
+        -x|--file-name)
+            require_arg "$1" "$2"
+            file_name="$2"
+            shift 2
+            ;;
+        --)
+            shift
+            break
+            ;;
+        *)
+            echo "Unexpected option: $1"
+            exit 1
+            ;;
+    esac
 done
 
 
 get_files() {
-	if [[ -n "$file_name" ]]; then
-		found_file=$(find "$source_dir" -type f -name "*$file_name" -print -quit)
-		if [[ -z "$found_file" ]]; then
-			echo "File not found: $file_name" >&2
-			return 1
-		fi
-		printf '%s\0' "$found_file"
-	else
-		find "$source_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" \) -print0 | sort -zV
-	fi
+    if [[ -n "$file_name" ]]; then
+        found_file=$(find "$source_dir" -type f -name "*$file_name" -print -quit)
+        if [[ -z "$found_file" ]]; then
+            echo "File not found: $file_name" >&2
+            return 1
+        fi
+        printf '%s\0' "$found_file"
+    else
+        find "$source_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" \) -print0 | sort -zV
+    fi
 }
 
 
 elapsed_time() {
-	printf "%02d:%02d:%02d" \
-		$((SECONDS/3600)) \
-		$(((SECONDS%3600)/60)) \
-		$((SECONDS%60))
+    printf "%02d:%02d:%02d" \
+        $((SECONDS/3600)) \
+        $(((SECONDS%3600)/60)) \
+        $((SECONDS%60))
 }
 
 
 ntfy() {
-	echo "$1"
-	if [[ -n "$ntfy_id" ]]; then
-		curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
-	fi
+    echo "$1"
+    if [[ -n "$ntfy_id" ]]; then
+        curl -s -o /dev/null -d "$1" "ntfy.sh/$ntfy_id"
+    fi
 }
 
 
 ntfy_data() {
-	printf "%s\n%s > %s\n%s" \
-		"$basename_file" \
-		"$before_size_mb" \
-		"$after_size_mb" \
-		"$elapsed"
+    printf "%s\n%s > %s\n%s" \
+        "$basename_file" \
+        "$before_size_mb" \
+        "$after_size_mb" \
+        "$elapsed"
 }
 
 
 cleanup() {
-	if [[ "$keep_temp_files" == false ]]; then
-		echo "Deleting temporary files."
-		rm -f -- "$temp_file" "$output_file"
-		rm -rf -- "$attach_dir"
-	else
-		echo "Temporary files kept in $temp_dir"
-	fi
+    if [[ "$keep_temp_files" == false ]]; then
+        echo "Deleting temporary files."
+        rm -f -- "$temp_file" "$output_file"
+        rm -rf -- "$attach_dir"
+    else
+        echo "Temporary files kept in $temp_dir"
+    fi
 }
 
 
 set_denoise() {
-	case "$denoise_lvl" in
-		disable)
-			denoise="0:0:0:0"
-			;;
-		low)
-			denoise="0.8:0.8:3:3"
-			;;
-		mid)
-			denoise="1.0:1.0:3:3"
-			;;
-		high)
-			denoise="1.2:1.2:4:4"
-			;;
-		very_high)
-			denoise="1.5:1.5:5:5"
-			;;
-		*)
-			denoise="$denoise_lvl"
-			;;
-	esac
+    case "$denoise_lvl" in
+        disable)
+            denoise="0:0:0:0"
+            ;;
+        low)
+            denoise="0.8:0.8:3:3"
+            ;;
+        mid)
+            denoise="1.0:1.0:3:3"
+            ;;
+        high)
+            denoise="1.2:1.2:4:4"
+            ;;
+        very_high)
+            denoise="1.5:1.5:5:5"
+            ;;
+        *)
+            denoise="$denoise_lvl"
+            ;;
+    esac
 }
 
 
 check_media_lengths() {
-	local source="$1"
-	local output="$2"
-	local tolerance=1
-	local source_video
-	local output_video
-	local source_audio
-	local output_audio
-	local source_count
-	local output_count
-	local i
-	local difference
+  local source="$1"
+  local output="$2"
+  local tolerance=1
+  local source_video_end
+  local output_video_end
+  local source_audio_end
+  local output_audio_end
+  local source_count
+  local output_count
+  local i
+  local difference
 
-	# Get video duration
-	source_video=$(ffprobe -v error \
-		-show_entries format=duration \
-		-of default=noprint_wrappers=1:nokey=1 \
-		"$source")
+  # Get final video packet timestamp
+  source_video_end=$(ffprobe -v error \
+    -select_streams v:0 \
+    -show_entries packet=pts_time \
+    -of csv=p=0 \
+    "$source" | tail -1)
 
-	output_video=$(ffprobe -v error \
-		-show_entries format=duration \
-		-of default=noprint_wrappers=1:nokey=1 \
-		"$output")
+  output_video_end=$(ffprobe -v error \
+    -select_streams v:0 \
+    -show_entries packet=pts_time \
+    -of csv=p=0 \
+    "$output" | tail -1)
 
-	if [[ -z "$source_video" || -z "$output_video" ]]; then
-		echo "Failed to determine video duration."
-		return 1
-	fi
+  if [[ -z "$source_video_end" || "$source_video_end" == "N/A" ]]; then
+    echo "Failed to determine source video end timestamp."
+    return 1
+  fi
 
-	difference=$(awk -v a="$source_video" -v b="$output_video" \
-		'BEGIN { d=a-b; if (d<0) d=-d; print d }')
+  if [[ -z "$output_video_end" || "$output_video_end" == "N/A" ]]; then
+    echo "Failed to determine output video end timestamp."
+    return 1
+  fi
 
-	if awk -v d="$difference" -v t="$tolerance" \
-		'BEGIN { exit !(d > t) }'
-	then
-		echo "Video duration mismatch:"
-		echo "  Source: $source_video seconds"
-		echo "  Output: $output_video seconds"
-		echo "  Difference: $difference seconds"
-		return 1
-	fi
+  difference=$(awk -v a="$source_video_end" -v b="$output_video_end" \
+    'BEGIN { d=a-b; if (d<0) d=-d; print d }')
 
-	# Get number of audio streams
-	source_count=$(ffprobe -v error \
-		-select_streams a \
-		-show_entries stream=index \
-		-of json \
-		"$source" | jq '.streams | length')
+  if awk -v d="$difference" -v t="$tolerance" \
+    'BEGIN { exit !(d > t) }'
+  then
+    echo "Video duration mismatch:"
+    echo "  Source end: $source_video_end seconds"
+    echo "  Output end: $output_video_end seconds"
+    echo "  Difference: $difference seconds"
+    return 1
+  fi
 
-	output_count=$(ffprobe -v error \
-		-select_streams a \
-		-show_entries stream=index \
-		-of json \
-		"$output" | jq '.streams | length')
+  # Get number of audio streams
+  source_count=$(ffprobe -v error \
+    -select_streams a \
+    -show_entries stream=index \
+    -of json \
+    "$source" | jq '.streams | length')
 
-	if [[ "$source_count" -ne "$output_count" ]]; then
-		echo "Audio stream count mismatch:"
-		echo "  Source: $source_count"
-		echo "  Output: $output_count"
-		return 1
-	fi
+  output_count=$(ffprobe -v error \
+    -select_streams a \
+    -show_entries stream=index \
+    -of json \
+    "$output" | jq '.streams | length')
 
-	# Compare each audio stream
-	for ((i=0; i<source_count; i++)); do
-		source_audio=$(ffprobe -v error \
-			-select_streams "a:$i" \
-			-show_entries stream=duration \
-			-of default=noprint_wrappers=1:nokey=1 \
-			"$source")
+  if [[ "$source_count" -ne "$output_count" ]]; then
+    echo "Audio stream count mismatch:"
+    echo "  Source: $source_count"
+    echo "  Output: $output_count"
+    return 1
+  fi
 
-		output_audio=$(ffprobe -v error \
-			-select_streams "a:$i" \
-			-show_entries stream=duration \
-			-of default=noprint_wrappers=1:nokey=1 \
-			"$output")
+  # Compare final packet timestamp of each audio stream
+  for ((i=0; i<source_count; i++)); do
 
-		if [[ -z "$source_audio" || -z "$output_audio" ]]; then
-			echo "Failed to determine duration of audio stream $i."
-			return 1
-		fi
+    source_audio_end=$(ffprobe -v error \
+      -select_streams "a:$i" \
+      -show_entries packet=pts_time \
+      -of csv=p=0 \
+      "$source" | tail -1)
 
-		difference=$(awk -v a="$source_audio" -v b="$output_audio" \
-			'BEGIN { d=a-b; if (d<0) d=-d; print d }')
+    output_audio_end=$(ffprobe -v error \
+      -select_streams "a:$i" \
+      -show_entries packet=pts_time \
+      -of csv=p=0 \
+      "$output" | tail -1)
 
-		if awk -v d="$difference" -v t="$tolerance" \
-			'BEGIN { exit !(d > t) }'
-		then
-			echo "Audio duration mismatch (stream $i):"
-			echo "  Source: $source_audio seconds"
-			echo "  Output: $output_audio seconds"
-			echo "  Difference: $difference seconds"
-			return 1
-		fi
-	done
+    if [[ -z "$source_audio_end" || "$source_audio_end" == "N/A" ]]; then
+      echo "Failed to determine source audio stream $i end timestamp."
+      return 1
+    fi
 
-	echo "Media integrity check passed."
-	return 0
+    if [[ -z "$output_audio_end" || "$output_audio_end" == "N/A" ]]; then
+      echo "Failed to determine output audio stream $i end timestamp."
+      return 1
+    fi
+
+    difference=$(awk -v a="$source_audio_end" -v b="$output_audio_end" \
+      'BEGIN { d=a-b; if (d<0) d=-d; print d }')
+
+    if awk -v d="$difference" -v t="$tolerance" \
+      'BEGIN { exit !(d > t) }'
+    then
+      echo "Audio duration mismatch (stream $i):"
+      echo "  Source end: $source_audio_end seconds"
+      echo "  Output end: $output_audio_end seconds"
+      echo "  Difference: $difference seconds"
+      return 1
+    fi
+  done
+
+  echo "Media integrity check passed."
+  return 0
 }
 
 
@@ -435,217 +448,217 @@ set_denoise
 
 
 if [[ ! -d "$base_temp_dir" ]]; then
-	echo "Creating directory: $base_temp_dir"
-	if ! mkdir -p -- "$base_temp_dir"; then
-		echo "Failed to create directory: $base_temp_dir"
-		exit 1
-	fi
+    echo "Creating directory: $base_temp_dir"
+    if ! mkdir -p -- "$base_temp_dir"; then
+        echo "Failed to create directory: $base_temp_dir"
+        exit 1
+    fi
 fi
 
 temp_dir=$(mktemp -d "$base_temp_dir"/mkv-ultra.XXXXXX) || {
-	echo "Failed to create temporary directory"
-	exit 1
+    echo "Failed to create temporary directory"
+    exit 1
 }
 
 
 while IFS= read -r -d '' source_file; do
-	SECONDS=0
+    SECONDS=0
 
-	name_info_file="$(basename "${source_file%.*}").info"
-	ffmpeg -i "$source_file" -probesize 100M -analyzeduration 100M > "$temp_dir/$name_info_file" 2>&1
+    name_info_file="$(basename "${source_file%.*}").info"
+    ffmpeg -i "$source_file" -probesize 100M -analyzeduration 100M > "$temp_dir/$name_info_file" 2>&1
 
-	compressed=$(ffprobe -v error \
-		-show_entries format_tags=comment \
-		-of default=noprint_wrappers=1:nokey=1 \
-		"$source_file")
+    compressed=$(ffprobe -v error \
+        -show_entries format_tags=comment \
+        -of default=noprint_wrappers=1:nokey=1 \
+        "$source_file")
 
-	if [[ "$compressed" == "COMPRESSED" && "$compress_check" == true ]]; then
-		echo "File already compressed: $source_file"
-		continue
-	fi
+    if [[ "$compressed" == "COMPRESSED" && "$compress_check" == true ]]; then
+        echo "File already compressed: $source_file"
+        continue
+    fi
 
-	echo "Processing: $source_file"
-	basename_file=$(basename "$source_file")
-	final_file="${source_file%.*}.mkv"
-	ext="${source_file##*.}"
-	ext="${ext,,}"
+    echo "Processing: $source_file"
+    basename_file=$(basename "$source_file")
+    final_file="${source_file%.*}.mkv"
+    ext="${source_file##*.}"
+    ext="${ext,,}"
 
-	temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/source.XXXXXX)
-	output_file=$(mktemp --suffix=".mkv" "$temp_dir"/output.XXXXXX)
-	attach_dir=$(mktemp -d "$temp_dir"/attachments.XXXXXX)
+    temp_file=$(mktemp --suffix=".$ext" "$temp_dir"/source.XXXXXX)
+    output_file=$(mktemp --suffix=".mkv" "$temp_dir"/output.XXXXXX)
+    attach_dir=$(mktemp -d "$temp_dir"/attachments.XXXXXX)
 
-	echo "Copying: $source_file to $temp_file"
-	if ! cp -- "$source_file" "$temp_file"; then
-		echo "Failed to copy $source_file"
-		cleanup
-		continue
-	fi
+    echo "Copying: $source_file to $temp_file"
+    if ! cp -- "$source_file" "$temp_file"; then
+        echo "Failed to copy $source_file"
+        cleanup
+        continue
+    fi
 
-	before_size=$(stat -c %s "$temp_file")
-	before_size_mb="$((before_size / 1024 / 1024))MB"
+    before_size=$(stat -c %s "$temp_file")
+    before_size_mb="$((before_size / 1024 / 1024))MB"
 
-	if [[ "$ext" == "mkv" ]]; then
-		echo "Checking attachments..."
-		attachment_count=$(mkvmerge -J "$temp_file" | jq '.attachments | length')
+    if [[ "$ext" == "mkv" ]]; then
+        echo "Checking attachments..."
+        attachment_count=$(mkvmerge -J "$temp_file" | jq '.attachments | length')
 
-		if [[ "$attachment_count" -gt 0 ]]; then
-			echo "Extracting $attachment_count attachments..."
-			while IFS=: read -r id name; do
-				if ! mkvextract -q attachments "$temp_file" \
-					"$id:$attach_dir/$name"
-				then
-					echo "Failed to extract attachment: $name"
-					cleanup
-					continue 2
-				fi
-			done < <(
-				mkvmerge -J "$temp_file" |
-					jq -r '.attachments[] | "\(.id):\(.file_name)"'
-			)
-		else
-			echo "No attachments found."
-		fi
-	else
-		attachment_count=0
-	fi
+        if [[ "$attachment_count" -gt 0 ]]; then
+            echo "Extracting $attachment_count attachments..."
+            while IFS=: read -r id name; do
+                if ! mkvextract -q attachments "$temp_file" \
+                    "$id:$attach_dir/$name"
+                then
+                    echo "Failed to extract attachment: $name"
+                    cleanup
+                    continue 2
+                fi
+            done < <(
+                mkvmerge -J "$temp_file" |
+                    jq -r '.attachments[] | "\(.id):\(.file_name)"'
+            )
+        else
+            echo "No attachments found."
+        fi
+    else
+        attachment_count=0
+    fi
 
-	source_pix_fmt=$(ffprobe -v error \
-		-select_streams v:0 \
-		-show_entries stream=pix_fmt \
-		-of default=noprint_wrappers=1:nokey=1 \
-		"$temp_file")
+    source_pix_fmt=$(ffprobe -v error \
+        -select_streams v:0 \
+        -show_entries stream=pix_fmt \
+        -of default=noprint_wrappers=1:nokey=1 \
+        "$temp_file")
 
-	case "$source_pix_fmt" in
-		yuv420p)
-			format="nv12"
-			profile="main"
-			;;
-		yuv420p10le|yuv422p10le|yuv444p10le)
-			format="p010le"
-			profile="main10"
-			;;
-		*)
-			echo "Unsupported pixel format: $source_pix_fmt"
-			cleanup
-			continue
-			;;
-	esac
+    case "$source_pix_fmt" in
+        yuv420p)
+            format="nv12"
+            profile="main"
+            ;;
+        yuv420p10le|yuv422p10le|yuv444p10le)
+            format="p010le"
+            profile="main10"
+            ;;
+        *)
+            echo "Unsupported pixel format: $source_pix_fmt"
+            cleanup
+            continue
+            ;;
+    esac
 
-	audio_filters=()
-	audio_index=0
+    audio_filters=()
+    audio_index=0
 
-	while IFS= read -r channel_layout; do
-		case "$channel_layout" in
-			5.1\(side\))
-				audio_filters+=(
-					"-filter:a:$audio_index"
-					"channelmap=channel_layout=5.1"
-				)
-				;;
-		esac
-		((audio_index++))
-	done < <(
-		ffprobe -v error \
-			-select_streams a \
-			-show_entries stream=channel_layout \
-			-of csv=p=0 \
-			"$temp_file"
-	)
+    while IFS= read -r channel_layout; do
+        case "$channel_layout" in
+            5.1\(side\))
+                audio_filters+=(
+                    "-filter:a:$audio_index"
+                    "channelmap=channel_layout=5.1"
+                )
+                ;;
+        esac
+        ((audio_index++))
+    done < <(
+        ffprobe -v error \
+            -select_streams a \
+            -show_entries stream=channel_layout \
+            -of csv=p=0 \
+            "$temp_file"
+    )
 
 
-	echo "Encoding: $temp_file to $output_file"
-	if ffmpeg \
-		-hide_banner \
-		-v error \
-		-nostdin \
-		-y \
-		-probesize 100M \
-		-analyzeduration 100M \
-		-vaapi_device /dev/dri/renderD128 \
-		-i "$temp_file" \
-		-filter_complex "[0:v:0]hqdn3d=$denoise,format=$format,hwupload[v]" \
-		-map "[v]" \
-		-profile:v:0 "$profile" \
-		-map 0:a? \
-		-map 0:s? \
-		-map 0:v:1? \
-		-map_metadata 0 \
-		-map_chapters 0 \
-		-metadata comment="COMPRESSED" \
-		-c:v:0 hevc_vaapi \
-		-rc_mode:v:0 ICQ \
-		-qp:v:0 "$compression_lvl" \
-		-c:v:1 copy \
-		-c:a libopus \
-		-b:a "$audio_bit_rate" \
-		"${audio_filters[@]}" \
-		-c:s copy \
-		"$output_file"
+    echo "Encoding: $temp_file to $output_file"
+    if ffmpeg \
+        -hide_banner \
+        -v error \
+        -nostdin \
+        -y \
+        -probesize 100M \
+        -analyzeduration 100M \
+        -vaapi_device /dev/dri/renderD128 \
+        -i "$temp_file" \
+        -filter_complex "[0:v:0]hqdn3d=$denoise,format=$format,hwupload[v]" \
+        -map "[v]" \
+        -profile:v:0 "$profile" \
+        -map 0:a? \
+        -map 0:s? \
+        -map 0:v:1? \
+        -map_metadata 0 \
+        -map_chapters 0 \
+        -metadata comment="COMPRESSED" \
+        -c:v:0 hevc_vaapi \
+        -rc_mode:v:0 ICQ \
+        -qp:v:0 "$compression_lvl" \
+        -c:v:1 copy \
+        -c:a libopus \
+        -b:a "$audio_bit_rate" \
+        "${audio_filters[@]}" \
+        -c:s copy \
+        "$output_file"
 
-	then
-		
-		ffmpeg -i "$output_file" -probesize 100M -analyzeduration 100M >> "$temp_dir/$name_info_file" 2>&1
+    then
+        
+        ffmpeg -i "$output_file" -probesize 100M -analyzeduration 100M >> "$temp_dir/$name_info_file" 2>&1
 
-		if ! check_media_lengths "$temp_file" "$output_file"; then
-			ntfy "Integrity Check Failed: $basename_file"
-			cleanup
-			continue
-		fi
+        if ! check_media_lengths "$temp_file" "$output_file"; then
+            ntfy "Integrity Check Failed: $basename_file"
+            cleanup
+            continue
+        fi
 
-		if [[ "$ext" == "mkv" && "$attachment_count" -gt 0 ]]; then
-			echo "Restoring attachments..."
-			for attachment in "$attach_dir"/*; do
-				[[ -f "$attachment" ]] || continue
-				if ! mkvpropedit -q "$output_file" \
-					--add-attachment "$attachment"
-				then
-					echo "Failed adding attachment: $attachment"
-					cleanup
-					exit 1
-				fi
-			done
-		fi
+        if [[ "$ext" == "mkv" && "$attachment_count" -gt 0 ]]; then
+            echo "Restoring attachments..."
+            for attachment in "$attach_dir"/*; do
+                [[ -f "$attachment" ]] || continue
+                if ! mkvpropedit -q "$output_file" \
+                    --add-attachment "$attachment"
+                then
+                    echo "Failed adding attachment: $attachment"
+                    cleanup
+                    exit 1
+                fi
+            done
+        fi
 
-		after_size=$(stat -c %s "$output_file")
-		after_size_mb="$((after_size / 1024 / 1024))MB"
+        after_size=$(stat -c %s "$output_file")
+        after_size_mb="$((after_size / 1024 / 1024))MB"
 
-		if [[ "$after_size" -ge "$before_size" ]]; then
-			elapsed=$(elapsed_time)
-			ntfy "File size did not shrink: $(ntfy_data)"
-			cleanup
-			echo "----------------------------------------"
-			continue
-		fi
+        if [[ "$after_size" -ge "$before_size" ]]; then
+            elapsed=$(elapsed_time)
+            ntfy "File size did not shrink: $(ntfy_data)"
+            cleanup
+            echo "----------------------------------------"
+            continue
+        fi
 
-		if [[ "$test_run" == false ]]; then
-			echo "Copying: $output_file to $final_file"
-			if cp -- "$output_file" "$final_file"; then
-				if [[ "$source_file" != "$final_file" ]]; then
-					rm -- "$source_file"
-				fi
-				elapsed=$(elapsed_time)
-				ntfy "Compressed: $(ntfy_data)"
-			else
-				elapsed=$(elapsed_time)
-				ntfy "Failed to replace: $source_file - Original file kept."
-			fi
-		else
-			elapsed=$(elapsed_time)
-			ntfy "Dry Run Complete: $(ntfy_data)"
-		fi
+        if [[ "$test_run" == false ]]; then
+            echo "Copying: $output_file to $final_file"
+            if cp -- "$output_file" "$final_file"; then
+                if [[ "$source_file" != "$final_file" ]]; then
+                    rm -- "$source_file"
+                fi
+                elapsed=$(elapsed_time)
+                ntfy "Compressed: $(ntfy_data)"
+            else
+                elapsed=$(elapsed_time)
+                ntfy "Failed to replace: $source_file - Original file kept."
+            fi
+        else
+            elapsed=$(elapsed_time)
+            ntfy "Dry Run Complete: $(ntfy_data)"
+        fi
 
-	else
-		ntfy "Failed: $basename_file"
-	fi
+    else
+        ntfy "Failed: $basename_file"
+    fi
 
-	cleanup
-	echo "----------------------------------------"
+    cleanup
+    echo "----------------------------------------"
 
 done < <(get_files)
 
 
 if [[ "$keep_temp_files" == false ]]; then
-	rm -rf -- "$temp_dir"
+    rm -rf -- "$temp_dir"
 fi
 
 sleep 1
