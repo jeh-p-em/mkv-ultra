@@ -1,7 +1,7 @@
 #!/bin/bash
 
 compress_check=true
-ntfy_id=""
+ntfy_id=$NTFY_ID
 compression_lvl="28"
 base_temp_dir="$HOME/mkv-ultra"
 temp_dir=""
@@ -257,17 +257,26 @@ done
 
 get_files() {
     if [[ -n "$file_name" ]]; then
-        found_file=$(find "$source_dir" -type f -name "*$file_name" -print -quit)
+        local found_file
+
+        found_file=$(
+            find "$source_dir" -type f \
+                -iname "*${file_name}*" \
+                -print -quit
+        )
+
         if [[ -z "$found_file" ]]; then
             echo "File not found: $file_name" >&2
             return 1
         fi
+
         printf '%s\0' "$found_file"
     else
-        find "$source_dir" -type f \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" \) -print0 | sort -zV
+        find "$source_dir" -type f \
+            \( -iname "*.mkv" -o -iname "*.mp4" -o -iname "*.avi" \) \
+            -print0 | sort -zV
     fi
 }
-
 
 elapsed_time() {
     printf "%02d:%02d:%02d" \
@@ -549,22 +558,22 @@ while IFS= read -r -d '' source_file; do
 
     while IFS= read -r channel_layout; do
         case "$channel_layout" in
-            5.1\(side\))
+            "5.1(side)")
                 audio_filters+=(
                     "-filter:a:$audio_index"
                     "channelmap=channel_layout=5.1"
                 )
                 ;;
         esac
+
         ((audio_index++))
     done < <(
         ffprobe -v error \
             -select_streams a \
             -show_entries stream=channel_layout \
-            -of csv=p=0 \
+            -of default=noprint_wrappers=1:nokey=1 \
             "$temp_file"
     )
-
 
     echo "Encoding: $temp_file to $output_file"
     if ffmpeg \
