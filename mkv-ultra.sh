@@ -555,7 +555,6 @@ while IFS= read -r -d '' source_file; do
 
     audio_filters=()
     audio_index=0
-
     while IFS= read -r channel_layout; do
         case "$channel_layout" in
             "5.1(side)")
@@ -565,13 +564,32 @@ while IFS= read -r -d '' source_file; do
                 )
                 ;;
         esac
-
         ((audio_index++))
     done < <(
         ffprobe -v error \
             -select_streams a \
             -show_entries stream=channel_layout \
             -of default=noprint_wrappers=1:nokey=1 \
+            "$temp_file"
+    )
+
+    subtitle_args=()
+    subtitle_index=1
+    while IFS= read -r subtitle_codec; do
+        case "$subtitle_codec" in
+            "mov_text")
+                subtitle_args+=("-c:s:$subtitle_index" "srt")
+                ;;
+            *)
+                subtitle_args+=("-c:s:$subtitle_index" "copy")
+                ;;
+        esac
+        ((subtitle_index++))
+    done < <(
+        ffprobe -v error \
+            -select_streams s \
+            -show_entries stream=codec_name \
+            -of csv=p=0 \
             "$temp_file"
     )
 
@@ -597,11 +615,11 @@ while IFS= read -r -d '' source_file; do
         -c:v:0 hevc_vaapi \
         -rc_mode:v:0 ICQ \
         -qp:v:0 "$compression_lvl" \
-        -c:v:1 copy \
+        -qp:v:1 copy \
         -c:a libopus \
         -b:a "$audio_bit_rate" \
         "${audio_filters[@]}" \
-        -c:s copy \
+        "${subtitle_args[@]}" \
         "$output_file"
 
     then
