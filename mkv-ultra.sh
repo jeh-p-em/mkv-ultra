@@ -614,14 +614,12 @@ while IFS= read -r -d '' source_file; do
         -profile:v:0 "$profile" \
         -map 0:a? \
         -map 0:s? \
-        -map 0:v:1? \
         -map_metadata 0 \
         -map_chapters 0 \
         -metadata comment="COMPRESSED" \
         -c:v:0 hevc_vaapi \
         -rc_mode:v:0 ICQ \
         -qp:v:0 "$compression_lvl" \
-        -qp:v:1 copy \
         -c:a libopus \
         -b:a "$audio_bit_rate" \
         "${audio_filters[@]}" \
