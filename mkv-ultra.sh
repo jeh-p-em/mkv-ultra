@@ -563,6 +563,12 @@ while IFS= read -r -d '' source_file; do
                     "channelmap=channel_layout=5.1"
                 )
                 ;;
+            "6.1(back)")
+                audio_filters+=(
+                    "-filter:a:$audio_index"
+                    "channelmap=channel_layout=5.1"
+                )
+                ;;
         esac
         ((audio_index++))
     done < <(
